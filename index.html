@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C-3PO Browser Voice & Camera Demo</title>
+<style>
+  body { background: black; color: gold; font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+  button { font-size: 18px; background: gold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; margin: 10px; }
+  video { border: 3px solid gold; border-radius: 12px; width: 320px; height: 240px; }
+  #status { margin-top: 15px; white-space: pre-wrap; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h1>C-3PO Browser Voice & Camera Demo</h1>
+
+<button id="talkBtn">Speak to C-3PO</button>
+
+<p id="status">Press the button and talk. Camera detecting red color...</p>
+
+<video id="video" autoplay></video>
+
+<script>
+const status = document.getElementById('status');
+const talkBtn = document.getElementById('talkBtn');
+const video = document.getElementById('video');
+
+// Start webcam
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:true});
+    video.srcObject = stream;
+    detectRedColor(stream);
+  } catch(e) {
+    status.textContent = "Camera error: " + e.message;
+  }
+}
+
+// Simple red color detection in video frames using canvas
+function detectRedColor(stream) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const videoTrack = stream.getVideoTracks()[0];
+  const settings = videoTrack.getSettings();
+
+  canvas.width = settings.width || 320;
+  canvas.height = settings.height || 240;
+
+  let lastRedDetected = false;
+
+  function checkFrame() {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let redPixels = 0;
+    const threshold = 150; // redness threshold
+    for(let i=0; i < frame.data.length; i += 4) {
+      const r = frame.data[i];
+      const g = frame.data[i+1];
+      const b = frame.data[i+2];
+      if(r > threshold && g < 100 && b < 100) redPixels++;
+    }
+
+    if(redPixels > 1000 && !lastRedDetected) {
+      lastRedDetected = true;
+      speakC3PO("Oh dear! I see a red object! How intriguing!");
+      status.textContent = "C-3PO: I see a red object! How intriguing!";
+    } else if (redPixels <= 1000 && lastRedDetected) {
+      lastRedDetected = false;
+      status.textContent = "Press the button and talk. Camera detecting red color...";
+    }
+
+    requestAnimationFrame(checkFrame);
+  }
+  checkFrame();
+}
+
+// C-3PO style local responses (no API calls)
+function c3poReply(userText) {
+  const lower = userText.toLowerCase();
+  if(lower.includes("hello") || lower.includes("hi")) {
+    return "Greetings, Master! I am C-3PO, fluent in over six million forms of communication. How may I assist you? Goodness me!";
+  } else if(lower.includes("how are you")) {
+    return "I am functioning within normal parameters! Thank you for asking. Oh dear!";
+  } else if(lower.includes("exit") || lower.includes("stop") || lower.includes("quit")) {
+    return "Farewell, Master. May the Force be with you!";
+  } else {
+    return "I do hope I am being helpful! Could you please rephrase that, Master?";
+  }
+}
+
+// Speech recognition
+talkBtn.onclick = () => {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert("Your browser does not support speech recognition.");
+    return;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-GB';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  status.textContent = "Listening... Please speak.";
+
+  recognition.start();
+
+  recognition.onresult = event => {
+    const userSpeech = event.results[0][0].transcript;
+    status.textContent = `You said: "${userSpeech}"`;
+
+    const reply = c3poReply(userSpeech);
+    speakC3PO(reply);
+    status.textContent += `\nC-3PO: ${reply}`;
+  };
+
+  recognition.onerror = event => {
+    status.textContent = 'Oh dear! I did not catch that.';
+  };
+}
+
+// Speech synthesis
+function speakC3PO(text) {
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-GB';
+  utter.rate = 1.0;
+  speechSynthesis.speak(utter);
+}
+
+startCamera();
+</script>
+
+</body>
+</html>
