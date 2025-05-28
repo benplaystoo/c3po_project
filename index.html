@@ -32,3 +32,99 @@
       border-radius: 10px;
     }
     #log {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <h1>C-3PO AI Assistant</h1>
+
+  <button onclick="startListening()">🎙️ Talk to C-3PO</button>
+  <button onclick="startAlarm()">⏰ Set Alarm</button>
+
+  <div>
+    <video id="camera" autoplay muted></video>
+  </div>
+
+  <div id="log">Hello! I am C-3PO, your personal assistant droid!</div>
+
+  <script>
+    // --- OpenAI API ---
+    const openai_api_key = "YOUR_OPENAI_API_KEY";
+
+    async function askC3PO(prompt) {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openai_api_key}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "You are C-3PO, a protocol droid from Star Wars." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.7
+        })
+      });
+      const data = await response.json();
+      const reply = data.choices[0].message.content;
+      logMessage("C-3PO: " + reply);
+      speak(reply);
+    }
+
+    // --- Voice Recognition ---
+    function startListening() {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "en-US";
+      recognition.start();
+      recognition.onresult = function(event) {
+        const text = event.results[0][0].transcript;
+        logMessage("You: " + text);
+        askC3PO(text);
+      };
+      recognition.onerror = function() {
+        logMessage("Oh dear! I did not catch that.");
+        speak("Oh dear! I did not catch that.");
+      };
+    }
+
+    // --- Text to Speech ---
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.2;
+      utterance.pitch = 1.5;
+      utterance.voice = speechSynthesis.getVoices().find(v => v.name.includes("Google UK English Male")) || null;
+      speechSynthesis.speak(utterance);
+    }
+
+    // --- Log Display ---
+    function logMessage(message) {
+      document.getElementById("log").innerText = message;
+    }
+
+    // --- Camera Access ---
+    const camera = document.getElementById("camera");
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { camera.srcObject = stream; })
+      .catch(() => { logMessage("Camera access denied!"); });
+
+    // --- Alarm at 6:30 AM Pacific ---
+    function startAlarm() {
+      logMessage("Alarm set for 6:30 AM Pacific Time!");
+      const now = new Date();
+      const pacificOffset = -7 * 60; // PDT (adjust for daylight savings)
+      const alarmTime = new Date(now);
+      alarmTime.setUTCHours(13, 30, 0, 0); // 6:30 AM PDT is 13:30 UTC
+      const timeToAlarm = alarmTime - now;
+      setTimeout(() => {
+        logMessage("Beep beep! Goodness me, it’s 6:30 AM!");
+        speak("Beep beep! Goodness me, it’s 6:30 AM!");
+      }, timeToAlarm > 0 ? timeToAlarm : 86400000 + timeToAlarm);
+    }
+  </script>
+</body>
+</html>
